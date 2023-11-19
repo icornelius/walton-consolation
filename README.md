@@ -10,3 +10,5 @@ For each stanza, I supply the following:
 
 Bibliographical details for these sources may be found in my Zotero library under the keyword [`Walton_consolation`](https://www.zotero.org/irc7/tags/Walton_consolation/library).
 The same tag supplies other relevant bibliography.
+
+The Python script `converter.py` runs simple interactive queries on the `csv` file.
