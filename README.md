@@ -12,3 +12,11 @@ Bibliographical details for these sources may be found in my Zotero library unde
 The same tag supplies other relevant bibliography.
 
 The Python script `converter.py` runs simple interactive queries on the `csv` file.
+Usage:
+
+```
+$ python3 converter.py
+```
+
+Then follow the prompts.
+Requires Python 3.6 or above.
