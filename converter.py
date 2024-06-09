@@ -6,13 +6,12 @@ def load_data(file_path):
     with open(file_path) as file:
         return {str(index): line.strip().split(",") for index, line in enumerate(file)}
 
-def get_valid_input(prompt):
+def get_valid_input(prompt, options):
     while True:
         choice = input(prompt)
-        if choice in str(options.keys()):
-            print(f"You have selected {choice}, {options[int(choice)]}.\n")
+        if choice in options:
             return choice
-        prompt = "Try again.\nEnter a numeral between 1 and 4: "
+        prompt = "Invalid input. Try again. "
 
 print("Welcome to the reference converter for Walton's Boethius.\n")
 
@@ -35,7 +34,8 @@ options = {
         4:"Schümmer (continuous stanzas)"
 }
 
-read_source = get_valid_input("Enter a number (1)-(4) from the options: ")
+prompt = "Enter a number (1)-(4) from the options: "
+read_source = get_valid_input(prompt, str(options.keys()))
 
 # Load file as dictionary of lists
 data = load_data(csv)
@@ -61,15 +61,13 @@ while repeat:
         section = input(input_msg)
         input_msg = "Enter a line number: "
         line = input(input_msg)
-        if section == "P" or section == "1" or section == "2" or section == "3":
+        if section == "P1" or section == "1" or section == "2" or section == "3":
             stanza = (int(line)-1) // 8 + 1
             floor_line = int(stanza) * 8 - 7
         elif section == "P2" or section == "4" or section == "5":
             stanza = (int(line)-1) // 7 + 1
             floor_line = int(stanza) * 7 - 6
         query = str(section) + "." + str(floor_line)
-
-    print(f"Looking for reference point {query} in {options[int(read_source)]}...\n")
 
     # Run the query
     found=False
@@ -84,6 +82,6 @@ while repeat:
     print()
 
     # Offer to query again
-    repeat = input("Convert another reference from the same source? (y/n) ").lower() == 'y'
+    repeat = input("Type 'q' to quit or any key to convert another reference from the same source. ").lower() != 'q'
 
 print("Goodbye")
