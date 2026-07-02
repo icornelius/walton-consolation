@@ -1,87 +1,130 @@
-import os
+#!/usr/bin/env python3
+"""Interactive reference converter for Walton's Boethius line-number concordance."""
 
-csv = 'line-number-concordance.csv'
+from __future__ import annotations
 
-def load_data(file_path):
-    with open(file_path) as file:
-        return {str(index): line.strip().split(",") for index, line in enumerate(file)}
+import csv
+import sys
+from dataclasses import dataclass
+from pathlib import Path
 
-def get_valid_input(prompt, options):
+CONCORDANCE_FILE = Path(__file__).parent / "line-number-concordance.csv"
+
+
+@dataclass(frozen=True)
+class Source:
+    label: str
+    column: int  # index into a concordance row
+
+
+SOURCES: dict[str, Source] = {
+    "1": Source("Science (continuous stanzas)", 1),
+    "2": Source("Science (stanzas by section)", 2),
+    "3": Source("Myklebust (lines by book)", 3),
+    "4": Source("Schümmer (continuous stanzas)", 4),
+}
+
+
+def load_concordance(path: Path) -> list[list[str]]:
+    with path.open(newline="") as file:
+        reader = csv.reader(file)
+        next(reader)  # skip header
+        return list(reader)
+
+
+def get_valid_input(prompt: str, options) -> str:
     while True:
         choice = input(prompt)
         if choice in options:
             return choice
         prompt = "Invalid input. Try again. "
 
-print("Welcome to the reference converter for Walton's Boethius.\n")
 
-# Confirm CSV exists
-if not os.path.exists(csv):
-    print("Source file not found.")
-    exit()
-
-# Identify a source to query
-print("What reference system do you want to convert from?\n\n"
+def choose_source() -> str:
+    print(
+        "What reference system do you want to convert from?\n\n"
         "(1) Mark Science's continuous stanza numbering\n"
         "(2) Mark Science's numbering by book, section, and stanza\n"
         "(3) Nicholas Myklebust's numbering by book and line\n"
-        "(4) Karl Schümmer's continuous stanza numbering\n")
+        "(4) Karl Schümmer's continuous stanza numbering\n"
+    )
+    return get_valid_input("Enter a number (1)-(4) from the options: ", SOURCES)
 
-options = {
-        1:"Science (continuous stanzas)",
-        2:"Science (stanzas by section)",
-        3:"Myklebust (lines by book)",
-        4:"Schümmer (continuous stanzas)"
-}
 
-prompt = "Enter a number (1)-(4) from the options: "
-read_source = get_valid_input(prompt, str(options.keys()))
+def prompt_query(source: str) -> str:
+    if source in ("1", "4"):
+        return input("Enter a stanza number: ")
 
-# Load file as dictionary of lists
-data = load_data(csv)
+    if source == "2":
+        print(
+            ' * For the translation proper, use the format, e.g., "3m9", '
+            "for the ninth meter of the third book\n"
+            " * For the translator's FIRST PREFACE (preceding the Prologue), "
+            'enter "Pref1"\n'
+            " * For the translator's PROLOGUE (preceding Book 1), enter "
+            '"Prol"\n'
+            " * For the translator's SECOND PREFACE (preceding Book 4), "
+            'enter "Pref2"\n'
+        )
+        section = input("Enter a section code: ")
+        stanza = input("Enter a stanza number: ")
+        return f"{section}.{stanza}"
 
-# Load a query-term from input
-repeat = True
-while repeat:
-    if read_source == "1" or read_source == "4":
-        input_msg = "Enter a stanza number: "
-        query = input(input_msg)
-    elif read_source == "2":
-        print(" * For the translation proper, use the format, e.g., \"3m9\", for the ninth meter of the third book\n"
-              " * For the translator's FIRST PREFACE (preceding the Prologue), enter \"Pref1\"\n"
-              " * For the translator's PROLOGUE (preceding Book 1), enter \"Prol\"\n"
-              " * For the translator's SECOND PREFACE (preceding Book 4), enter \"Pref2\"\n")
-        input_msg = "Enter a section code: "
-        section = input(input_msg)
-        input_msg = "Enter a stanza number: "
-        stanza = input(input_msg)
-        query = section + "." + stanza
-    elif read_source == "3":
-        input_msg = "Enter a book number (for initial prefatory material, enter \"P1\"; for the second preface enter \"P2\"): "
-        section = input(input_msg)
-        input_msg = "Enter a line number: "
-        line = input(input_msg)
-        if section == "P1" or section == "1" or section == "2" or section == "3":
-            stanza = (int(line)-1) // 8 + 1
-            floor_line = int(stanza) * 8 - 7
-        elif section == "P2" or section == "4" or section == "5":
-            stanza = (int(line)-1) // 7 + 1
-            floor_line = int(stanza) * 7 - 6
-        query = str(section) + "." + str(floor_line)
+    # source == "3"
+    section = input(
+        'Enter a book number (for initial prefatory material, enter "P1"; '
+        'for the second preface enter "P2"): '
+    )
+    line = int(input("Enter a line number: "))
+    if section in ("P1", "1", "2", "3"):
+        stanza = (line - 1) // 8 + 1
+        floor_line = stanza * 8 - 7
+    else:  # P2, 4, 5
+        stanza = (line - 1) // 7 + 1
+        floor_line = stanza * 7 - 6
+    return f"{section}.{floor_line}"
 
-    # Run the query
-    found=False
-    for key in range(len(data)):
-        found = data[str(key)][int(read_source)] == query
-        if found:
-            for i in range(4):
-                print("\t" + options[i+1] + ":\t" + data[str(key)][i+1])
+
+def find_row(rows: list[list[str]], source: str, query: str) -> list[str] | None:
+    column = SOURCES[source].column
+    for row in rows:
+        if row[column] == query:
+            return row
+    return None
+
+
+def print_row(row: list[str]) -> None:
+    for source in SOURCES.values():
+        print(f"\t{source.label}:\t{row[source.column]}")
+
+
+def main() -> None:
+    print("Welcome to the reference converter for Walton's Boethius.\n")
+
+    if not CONCORDANCE_FILE.exists():
+        print("Source file not found.")
+        sys.exit(1)
+
+    rows = load_concordance(CONCORDANCE_FILE)
+    source = choose_source()
+
+    while True:
+        query = prompt_query(source)
+        row = find_row(rows, source, query)
+        if row:
+            print_row(row)
+        else:
+            print("Query term not found.")
+        print()
+
+        again = input(
+            "Type 'q' to quit or any key to convert another reference from the same source. "
+        ).lower()
+        if again == "q":
             break
-    if not found:
-        print("Query term not found.")
-    print()
 
-    # Offer to query again
-    repeat = input("Type 'q' to quit or any key to convert another reference from the same source. ").lower() != 'q'
+    print("Goodbye")
 
-print("Goodbye")
+
+if __name__ == "__main__":
+    main()
